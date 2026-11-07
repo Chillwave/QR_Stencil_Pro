@@ -33,8 +33,13 @@ module_mm = 0;
 // Bridge width in mm (~10% of module_mm; wider = stronger but scans worse)
 bridge_mm = 0.6;
 bridge_style = "rows"; // [rows, grid]
-// Plate thickness in mm
-thickness = 0.8;
+// Plate thickness in mm (raised bridges need ~2.4+)
+thickness = 2.4;
+// Raised bridges: bridges sit only in the top layers, held off the surface
+// so paint flows UNDER them and rows join up. Much better scanning.
+raised_bridges = true;
+// Thickness of the bridge layer in mm (raised mode). 3 layers @ 0.2 = 0.6
+bridge_layer = 0.6;
 
 /* [Label] */
 label_font = "Allerta Stencil"; // [Allerta Stencil, Saira Stencil One]
@@ -62,7 +67,9 @@ use <fonts/SairaStencilOne-Regular.ttf>
 
 // One dark module hole, in module units (origin = module's lower-left)
 module cell() {
-    if (bridge_style == "grid")
+    if ($b == 0) // no bridges: overlap all sides so neighbors fully merge
+        translate([-e, -e]) square([1 + 2*e, 1 + 2*e]);
+    else if (bridge_style == "grid")
         translate([$b/2, $b/2]) square([1 - $b, 1 - $b]);
     else // rows: extend past cell edges in X so neighbors fuse into strips
         translate([-e, $b/2]) square([1 + 2*e, 1 - $b]);
@@ -120,10 +127,17 @@ module stencil() {
              " | module ", m, " mm | QR ", qr_mm, " mm | border ",
              border, " mm | plate ", plate_size, " mm"));
     assert(bridge_mm < m * 0.4, "bridge_mm too wide for module size");
+    assert(!raised_bridges || thickness >= bridge_layer + 1.2,
+           "raised_bridges: make thickness >= bridge_layer + 1.2");
     assert(border >= band, "QR too big for the label - lower module_mm");
 
+    // Raised mode is modeled print-ready: bridge face on the bed (z=0), and
+    // mirrored, so it reads correctly once flipped bridge-face-out for use.
+    translate([raised_bridges ? plate_size : 0, 0, 0])
+    mirror([raised_bridges ? 1 : 0, 0, 0])
     difference() {
         linear_extrude(thickness) plate2d();
+        // Bridged cut, full depth
         translate([0, 0, -1]) linear_extrude(thickness + 2) {
             translate([qr_x, qr_y]) holes2d(qr_mm);
             if (has_label)
@@ -131,6 +145,14 @@ module stencil() {
                     text(label, size = label_size, font = label_font,
                          halign = "center", valign = "center");
         }
+        // Raised mode: below the bridge layer, cut full unbridged modules.
+        // Print bridge face DOWN on the bed; use it with that face OUT
+        // (open face against the wall).
+        if (raised_bridges)
+            translate([0, 0, bridge_layer]) linear_extrude(thickness) {
+                $b = 0;
+                translate([qr_x, qr_y]) holes2d(qr_mm);
+            }
         if (corner_holes)
             for (p = [[1,1],[1,-1],[-1,1],[-1,-1]])
                 translate([plate_size/2 + p[0]*(plate_size/2 - corner_r - hole_d/2 - 1),

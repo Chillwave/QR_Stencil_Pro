@@ -11,6 +11,7 @@ QR encoding is done entirely inside OpenSCAD. There's no external generator, no 
 ## Features
 
 - Any URL (or any text) → printable stencil, with a single connected solid
+- **Raised bridges**: the bridges sit off the surface so paint flows under them and the code sprays solid
 - Two bridge styles: `rows` (best scanning) or `grid` (stiffest)
 - Fixed plate size; the QR auto-sizes to fill it
 - Symmetrical layout: equal border on all four sides
@@ -50,7 +51,9 @@ QR v3 29x29 | module 5.31 mm | QR 154 mm | border 23 mm | plate 200 mm
 | `module_mm` | `0` | QR pixel size, mm. `0` = auto (largest that fits) |
 | `bridge_mm` | `0.6` | Bridge width, mm. About 10% of module size is the sweet spot |
 | `bridge_style` | `rows` | `rows` or `grid` (see below) |
-| `thickness` | `0.8` | Plate thickness, mm |
+| `thickness` | `2.4` | Plate thickness, mm |
+| `raised_bridges` | `true` | Bridges only in the top layers, raised off the surface (see below) |
+| `bridge_layer` | `0.6` | Bridge layer thickness, mm (raised mode) |
 
 ### Label
 | Name | Default | Description |
@@ -82,23 +85,38 @@ The library normally draws the three large corner squares (finder patterns) as s
 
 This works through `qr_custom()` from the scadqr library. The library decides *where* the dark pixels go, and this file supplies *what each pixel looks like* as child geometry.
 
+## Raised bridges (why the default plate is 2.4 mm)
+
+Flat bridges block paint, so the spray comes out as separate thin stripes. In testing on cardboard, real-world bridges came out 1–1.5 mm wide, and the result **did not scan**. Raised mode fixes this:
+
+- The plate is 2.4 mm thick, and the bridges exist only in the **0.6 mm on one face**.
+- Under the bridges, the full QR modules are open, so there's a 1.8 mm air gap and spray mist fills in underneath.
+- On the wall, you get solid modules with no gap lines.
+
+The STL is modeled **print-ready**: the bridge face sits on the bed and the design is **mirrored**. That's intentional. Once you flip it bridge-face-out to use it, it reads correctly.
+
+Set `raised_bridges = false` for the old thin, flat stencil.
+
 ## Printing
 
-- Print it flat in PLA or PETG. PETG survives more spray sessions.
+- Print it **as exported**: don't flip or mirror it in the slicer. The bridge face goes on the bed, with no supports needed.
+- PLA or PETG. PETG survives more spray sessions.
 - A 200 mm plate fills a 200 mm bed, so **turn off skirt and brim**. If your printer can't reach the edges, use `plate_size = 195`.
 - 0.6 mm bridges print fine with a 0.4 mm nozzle.
 
 ## Spraying
 
+- **Open face against the wall, bridge face toward you.** The text should read correctly when it's in place.
 - Tape the stencil flat. A light mist of repositionable spray adhesive on the back helps.
 - Spray from straight on, 25–30 cm away, in light passes. Heavy coats wick under the bridges.
-- A little paint under the bridges actually *helps* scanning, because it fills in the thin lines.
+- Spray from slightly above and slightly below, not just straight on, so mist gets under the bridges.
+- Use dark paint on a light surface. Contrast matters more than color: black on white scans best, while green on brown cardboard is marginal.
 - Spray onto a light surface. The solid border masks the quiet zone, which is the white margin a QR needs to scan.
 - If it won't scan, the paint bled. Use lighter coats before changing the design.
 
 ## Tested
 
-Cut patterns were rasterized and decoded with [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp), with blur added to simulate paint bleed. Both bridge styles were tested, with and without the label.
+Wall-side openings and bridge layers were rasterized and decoded with [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp), with blur added to simulate paint bleed. Both bridge styles were tested, with and without the label.
 
 ## Thingiverse / MakerWorld Customizer
 
